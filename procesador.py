@@ -4,10 +4,13 @@ import google.generativeai as genai
 def configurar_api(api_key):
     genai.configure(api_key=api_key)
 
-def extraer_calamares_y_preguntas(texto_medico, imagenes=[], num_preguntas=5, tema_especifico="todos los temas"):
+def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=5, tema_especifico="todos los temas"):
     """
     Envía texto e imágenes a Gemini para análisis multimodal y retorna un JSON estructurado.
     """
+    if imagenes is None:
+        imagenes = []
+        
     model = genai.GenerativeModel(
         'gemini-2.5-flash',
         generation_config={"response_mime_type": "application/json"}
@@ -35,17 +38,17 @@ def extraer_calamares_y_preguntas(texto_medico, imagenes=[], num_preguntas=5, te
     Instrucciones críticas:
     1. Extrae exactamente {num_preguntas} flashcards.
     2. Enfoca las preguntas principalmente en: {tema_especifico}.
-    3. Asegúrate de incluir datos extraídos de las tablas o imágenes si son relevantes.
-    4. Si una categoría no se menciona, déjala como "No especificado".
+    3. Asegúrate de incluir datos extraídos de las tablas o imágenes si son relevantes para el banqueo.
+    4. Si una categoría de los 'calamares' no se menciona, déjala como "No especificado".
 
     Texto médico:
     {texto_medico}
     """
     
-    # Empaquetamos el prompt textual y las imágenes juntas para que Gemini vea todo
-    contenido_a_enviar = [prompt]
+    # Empaquetamos todo (texto + imágenes) en una lista para el modelo
+    contenido = [prompt]
     if imagenes:
-        contenido_a_enviar.extend(imagenes)
+        contenido.extend(imagenes)
         
-    respuesta = model.generate_content(contenido_a_enviar)
+    respuesta = model.generate_content(contenido)
     return json.loads(respuesta.text)
