@@ -5,7 +5,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 def configurar_api(api_key):
     genai.configure(api_key=api_key)
 
-def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=5, tema_especifico="todos los temas"):
+def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=30, tema_especifico="todos los temas"):
     """
     Envía texto e imágenes a Gemini para análisis multimodal y retorna un JSON estructurado,
     con los filtros de seguridad ajustados para permitir contenido médico.
@@ -23,11 +23,12 @@ def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=5, 
     {{
         "tema_general": "Identifica el tema, patología o diagnóstico principal en máximo 5 palabras",
         "calamares": {{
-            "Diagnostico": "Resumen de sospecha o diagnóstico definitivo",
-            "Tratamiento": "Manejo médico, quirúrgico o de primera línea",
-            "Etiologia": "Causas o factores de riesgo",
-            "Clinica": "Signos y síntomas principales",
-            "Pruebas": "Estudios de imagen, laboratorio o gold standard"
+            "Diagnostico": "Resumen de sospecha o diagnóstico. Usa viñetas y negritas.",
+            "Tratamiento": "Manejo médico/quirúrgico. Usa viñetas y negritas para separar fármacos y dosis.",
+            "Etiologia": "Causas o factores de riesgo. Usa viñetas.",
+            "Clinica": "Signos y síntomas principales. Usa viñetas.",
+            "Pruebas": "Estudios de imagen o laboratorio. Usa viñetas.",
+            "Mnemotecnias": "Crea 1 o 2 mnemotecnias originales, en español y muy fáciles de recordar para los datos más difíciles de este tema (ej. criterios, fármacos o clínica)."
         }},
         "flashcards": [
             {{
@@ -37,11 +38,12 @@ def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=5, 
         ]
     }}
 
-    Instrucciones críticas:
-    1. Extrae exactamente {num_preguntas} flashcards.
-    2. Enfoca las preguntas principalmente en: {tema_especifico}.
-    3. Asegúrate de incluir datos extraídos de las tablas o imágenes si son relevantes para el banqueo.
-    4. Si una categoría de los 'calamares' no se menciona, déjala como "No especificado".
+    Instrucciones críticas y absolutas:
+    1. FORMATO ORDENADO: El contenido de los 'calamares' DEBE estar obligatoriamente en formato de lista con guiones (-). Prohibido usar bloques de texto sólidos. Resalta con **negritas** las palabras clave.
+    2. ATENCIÓN A LAS TABLAS: No te saltes ningún dato crucial que aparezca en las imágenes, clasificaciones o tablas adjuntas. Intégralos en los calamares y en las flashcards.
+    3. Extrae exactamente {num_preguntas} flashcards.
+    4. Enfoca las preguntas principalmente en: {tema_especifico}.
+    5. Si una categoría no se menciona, déjala como "No especificado".
 
     Texto médico:
     {texto_medico}
@@ -51,7 +53,6 @@ def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=5, 
     if imagenes:
         contenido.extend(imagenes)
         
-    # Apagamos los filtros para evitar falsos positivos con términos o imágenes médicas
     configuracion_seguridad = {
         HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
