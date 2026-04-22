@@ -5,7 +5,7 @@ from PIL import Image
 import io
 from procesador import configurar_api, extraer_calamares_y_preguntas
 
-st.set_page_config(page_title="Banqueo Médico", layout="wide")
+st.set_page_config(page_title="Banqueo Médico Multimodal", layout="wide")
 
 if "data_procesada" not in st.session_state:
     st.session_state.data_procesada = None
@@ -23,57 +23,69 @@ with col_ctrl2:
 tema_final = tema_sugerido if tema_sugerido.strip() != "" else "todos los temas"
 st.markdown("---")
 
-# --- CARGA DE DOCUMENTOS (Ahora soporta PPTX) ---
+# --- CARGA DE DOCUMENTOS ---
 archivo_subido = st.file_uploader("Sube tu apunte (PDF o PPTX)", type=["pdf", "pptx"])
 
 texto_extraido = ""
-imagenes_extraidas = []
+imagenes_brutas = []
 
 if archivo_subido is not None:
     nombre_archivo = archivo_subido.name.lower()
     
-    # Si es PDF, solo sacamos texto (por ahora)
+    # EXTRACCIÓN DE PDF
     if nombre_archivo.endswith(".pdf"):
         lector = PyPDF2.PdfReader(archivo_subido)
         for pagina in lector.pages:
-            texto_extraido += pagina.extract_text() + "\n"
-            
-    # Si es PPTX, sacamos texto e IMÁGENES
+            if pagina.extract_text():
+                texto_extraido += pagina.extract_text() + "\n"
+                
+    # EXTRACCIÓN DE PPTX
     elif nombre_archivo.endswith(".pptx"):
         prs = Presentation(archivo_subido)
         for slide in prs.slides:
             for shape in slide.shapes:
                 if hasattr(shape, "text"):
                     texto_extraido += shape.text + "\n"
-                # Extraer imágenes de la diapositiva
+                
                 if hasattr(shape, "image"):
                     image_bytes = shape.image.blob
                     imagen = Image.open(io.BytesIO(image_bytes))
-                    imagenes_extraidas.append(imagen)
-                    
-        # Mostrar preview de lo que la app acaba de "ver"
-        if imagenes_extraidas:
-            with st.expander(f"🖼️ Se detectaron {len(imagenes_extraidas)} imágenes/tablas en las diapositivas"):
-                # Mostramos miniaturas para que sepas qué está analizando
-                st.image(imagenes_extraidas, width=150)
+                    if imagen.mode != 'RGB':
+                        imagen = imagen.convert('RGB')
+                    imagenes_brutas.append(imagen)
 
-# --- PROCESAMIENTO ---
-if st.button("Procesar Apunte", type="primary"):
-    if not texto_extraido and not imagenes_extraidas:
-        st.error("Por favor, sube un documento válido con texto o imágenes.")
-    else:
-        with st.spinner(f"Analizando texto e imágenes para crear {num_preguntas} flashcards..."):
-            try:
-                api_key = st.secrets["GEMINI_API_KEY"]
-                configurar_api(api_key)
-                # Pasamos el texto y las imágenes a la IA
-                st.session_state.data_procesada = extraer_calamares_y_preguntas(
-                    texto_extraido, imagenes_extraidas, num_preguntas, tema_final
-                )
-            except KeyError:
-                st.error("Falta configurar la API Key en los secretos de Streamlit.")
-            except Exception as e:
-                st.error(f"Error en el procesamiento: {e}")
+    # --- FILTRO MANUAL DE IMÁGENES ---
+    imagenes_a_enviar = []
+    if imagenes_brutas:
+        st.warning("⚠️ **Filtro antobloqueo:** Desmarca las fotos clínicas explícitas. Deja solo las tablas, esquemas o clasificaciones.")
+        
+        # Crear una cuadrícula para mostrar las imágenes ordenadamente
+        columnas = st.columns(4) 
+        for idx, img in enumerate(imagenes_brutas):
+            col_idx = idx % 4
+            with columnas[col_idx]:
+                st.image(img, use_container_width=True)
+                # Casilla de verificación (por defecto marcada)
+                incluir = st.checkbox(f"Incluir", value=True, key=f"img_{idx}")
+                if incluir:
+                    imagenes_a_enviar.append(img)
+
+    # --- PROCESAMIENTO ---
+    if st.button("Procesar Apunte", type="primary"):
+        if not texto_extraido and not imagenes_a_enviar:
+            st.error("Sube un documento válido con texto o selecciona al menos una imagen.")
+        else:
+            with st.spinner(f"Analizando {len(imagenes_a_enviar)} imágenes y el texto para crear {num_preguntas} flashcards..."):
+                try:
+                    api_key = st.secrets["GEMINI_API_KEY"]
+                    configurar_api(api_key)
+                    st.session_state.data_procesada = extraer_calamares_y_preguntas(
+                        texto_extraido, imagenes_a_enviar, num_preguntas, tema_final
+                    )
+                except KeyError:
+                    st.error("Falta configurar la API Key en los secretos de Streamlit.")
+                except Exception as e:
+                    st.error(f"Error en el procesamiento: {e}")
 
 # --- VISUALIZACIÓN ---
 if st.session_state.data_procesada:
