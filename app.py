@@ -10,6 +10,27 @@ st.set_page_config(page_title="Banqueo Médico Multimodal", layout="wide")
 if "data_procesada" not in st.session_state:
     st.session_state.data_procesada = None
 
+# --- NUEVA FUNCIÓN AUTOMÁTICA ---
+def es_tabla_o_esquema(imagen):
+    """
+    Analiza la cantidad de colores únicos.
+    Tablas = pocos colores. Fotos clínicas = miles de colores.
+    """
+    try:
+        # Hacemos una miniatura rápida para no saturar la memoria
+        img_analisis = imagen.copy()
+        img_analisis.thumbnail((150, 150))
+        # Intentamos obtener hasta 3000 colores únicos
+        # Si la imagen tiene más de 3000 colores, getcolors() devuelve None (es una foto real)
+        colores = img_analisis.getcolors(3000)
+        
+        if colores is None:
+            return False # Es una foto clínica (compleja)
+        return True # Es una tabla, gráfico o texto (plana)
+    except Exception:
+        return True # Ante la duda, la aprobamos
+# --------------------------------
+
 st.title("🦑 Sistema de Banqueo y Calamares Mentales")
 
 # --- CONTROLES ---
@@ -32,14 +53,12 @@ imagenes_brutas = []
 if archivo_subido is not None:
     nombre_archivo = archivo_subido.name.lower()
     
-    # EXTRACCIÓN DE PDF
     if nombre_archivo.endswith(".pdf"):
         lector = PyPDF2.PdfReader(archivo_subido)
         for pagina in lector.pages:
             if pagina.extract_text():
                 texto_extraido += pagina.extract_text() + "\n"
                 
-    # EXTRACCIÓN DE PPTX
     elif nombre_archivo.endswith(".pptx"):
         prs = Presentation(archivo_subido)
         for slide in prs.slides:
@@ -54,28 +73,34 @@ if archivo_subido is not None:
                         imagen = imagen.convert('RGB')
                     imagenes_brutas.append(imagen)
 
-    # --- FILTRO MANUAL DE IMÁGENES ---
+    # --- FILTRO AUTOMÁTICO DE IMÁGENES ---
     imagenes_a_enviar = []
     if imagenes_brutas:
-        st.warning("⚠️ **Filtro antobloqueo:** Desmarca las fotos clínicas explícitas. Deja solo las tablas, esquemas o clasificaciones.")
+        st.info("🤖 **IA de Pre-filtrado activa:** La aplicación ha intentado identificar y marcar automáticamente las tablas útiles, desmarcando las fotos clínicas.")
         
-        # Crear una cuadrícula para mostrar las imágenes ordenadamente
         columnas = st.columns(4) 
         for idx, img in enumerate(imagenes_brutas):
             col_idx = idx % 4
+            
+            # ¡AQUÍ ESTÁ LA MAGIA AUTOMÁTICA!
+            parece_util = es_tabla_o_esquema(img)
+            
             with columnas[col_idx]:
                 st.image(img, use_container_width=True)
-                # Casilla de verificación (por defecto marcada)
-                incluir = st.checkbox(f"Incluir", value=True, key=f"img_{idx}")
+                # La casilla toma el valor dictado por nuestra función matemática
+                incluir = st.checkbox(f"Incluir", value=parece_util, key=f"img_{idx}")
+                
                 if incluir:
                     imagenes_a_enviar.append(img)
+                if not parece_util:
+                    st.caption("🔴 *Detectado como Foto*")
 
     # --- PROCESAMIENTO ---
     if st.button("Procesar Apunte", type="primary"):
         if not texto_extraido and not imagenes_a_enviar:
             st.error("Sube un documento válido con texto o selecciona al menos una imagen.")
         else:
-            with st.spinner(f"Analizando {len(imagenes_a_enviar)} imágenes y el texto para crear {num_preguntas} flashcards..."):
+            with st.spinner(f"Analizando {len(imagenes_a_enviar)} tablas/imágenes y el texto para crear {num_preguntas} flashcards..."):
                 try:
                     api_key = st.secrets["GEMINI_API_KEY"]
                     configurar_api(api_key)
