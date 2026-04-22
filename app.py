@@ -10,26 +10,16 @@ st.set_page_config(page_title="Banqueo Médico Multimodal", layout="wide")
 if "data_procesada" not in st.session_state:
     st.session_state.data_procesada = None
 
-# --- NUEVA FUNCIÓN AUTOMÁTICA ---
 def es_tabla_o_esquema(imagen):
-    """
-    Analiza la cantidad de colores únicos.
-    Tablas = pocos colores. Fotos clínicas = miles de colores.
-    """
     try:
-        # Hacemos una miniatura rápida para no saturar la memoria
         img_analisis = imagen.copy()
         img_analisis.thumbnail((150, 150))
-        # Intentamos obtener hasta 3000 colores únicos
-        # Si la imagen tiene más de 3000 colores, getcolors() devuelve None (es una foto real)
         colores = img_analisis.getcolors(3000)
-        
         if colores is None:
-            return False # Es una foto clínica (compleja)
-        return True # Es una tabla, gráfico o texto (plana)
+            return False 
+        return True 
     except Exception:
-        return True # Ante la duda, la aprobamos
-# --------------------------------
+        return True 
 
 st.title("🦑 Sistema de Banqueo y Calamares Mentales")
 
@@ -37,7 +27,8 @@ st.title("🦑 Sistema de Banqueo y Calamares Mentales")
 st.markdown("### ⚙️ Configuración del Banqueo")
 col_ctrl1, col_ctrl2 = st.columns(2)
 with col_ctrl1:
-    num_preguntas = st.slider("Número de Flashcards a generar", min_value=1, max_value=20, value=5)
+    # Aumentamos el máximo a 50 y el default a 30
+    num_preguntas = st.slider("Número de Flashcards a generar", min_value=1, max_value=50, value=30)
 with col_ctrl2:
     tema_sugerido = st.text_input("Tema sugerido (Opcional)", placeholder="Ej: Tratamiento. Si está vacío, serán todos.")
 
@@ -73,23 +64,18 @@ if archivo_subido is not None:
                         imagen = imagen.convert('RGB')
                     imagenes_brutas.append(imagen)
 
-    # --- FILTRO AUTOMÁTICO DE IMÁGENES ---
+    # --- FILTRO AUTOMÁTICO ---
     imagenes_a_enviar = []
     if imagenes_brutas:
-        st.info("🤖 **IA de Pre-filtrado activa:** La aplicación ha intentado identificar y marcar automáticamente las tablas útiles, desmarcando las fotos clínicas.")
-        
+        st.info("🤖 **IA de Pre-filtrado activa:** Marcando tablas y esquemas útiles.")
         columnas = st.columns(4) 
         for idx, img in enumerate(imagenes_brutas):
             col_idx = idx % 4
-            
-            # ¡AQUÍ ESTÁ LA MAGIA AUTOMÁTICA!
             parece_util = es_tabla_o_esquema(img)
             
             with columnas[col_idx]:
                 st.image(img, use_container_width=True)
-                # La casilla toma el valor dictado por nuestra función matemática
                 incluir = st.checkbox(f"Incluir", value=parece_util, key=f"img_{idx}")
-                
                 if incluir:
                     imagenes_a_enviar.append(img)
                 if not parece_util:
@@ -100,7 +86,7 @@ if archivo_subido is not None:
         if not texto_extraido and not imagenes_a_enviar:
             st.error("Sube un documento válido con texto o selecciona al menos una imagen.")
         else:
-            with st.spinner(f"Analizando {len(imagenes_a_enviar)} tablas/imágenes y el texto para crear {num_preguntas} flashcards..."):
+            with st.spinner(f"Analizando {len(imagenes_a_enviar)} imágenes y texto para crear {num_preguntas} flashcards..."):
                 try:
                     api_key = st.secrets["GEMINI_API_KEY"]
                     configurar_api(api_key)
@@ -126,7 +112,9 @@ if st.session_state.data_procesada:
         for categoria, contenido in data.get("calamares", {}).items():
             if contenido and contenido != "No especificado":
                 st.subheader(categoria)
-                st.info(contenido)
+                # Usamos un contenedor limpio para renderizar Markdown (viñetas y negritas)
+                with st.container(border=True):
+                    st.markdown(contenido)
                 
     with col2:
         st.header("🗂️ Flashcards")
