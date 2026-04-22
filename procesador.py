@@ -15,29 +15,28 @@ def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=30,
     )
     
     prompt = f"""
-    Eres un asistente médico experto. Analiza el texto médico y las imágenes/tablas adjuntas. Extrae la información en un objeto JSON estricto con esta estructura exacta:
+    Eres un asistente médico experto. Analiza el texto y tablas.
+    Genera un JSON con esta estructura de valores de texto simple:
     {{
-        "tema_general": "Identifica el tema principal en máximo 5 palabras",
+        "tema_general": "...",
         "calamares": {{
-            "Diagnostico": {{ "contenido": "...", "mnemotecnia": "..." }},
-            "Tratamiento": {{ "contenido": "...", "mnemotecnia": "..." }},
-            "Etiologia": {{ "contenido": "...", "mnemotecnia": "..." }},
-            "Clinica": {{ "contenido": "...", "mnemotecnia": "..." }},
-            "Pruebas": {{ "contenido": "...", "mnemotecnia": "..." }}
+            "Etiologia": "Texto con viñetas y mnemotecnia al final",
+            "Clinica": "Texto con viñetas y mnemotecnia al final",
+            "Diagnostico": "Texto con viñetas y mnemotecnia al final",
+            "Pruebas": "Texto con viñetas y mnemotecnia al final",
+            "Tratamiento": "Texto con viñetas y mnemotecnia al final"
         }},
-        "flashcards": [
-            {{ "pregunta": "...", "respuesta": "..." }}
-        ]
+        "flashcards": [ {{"pregunta": "...", "respuesta": "..."}} ]
     }}
 
-    Instrucciones críticas:
-    1. CONTENIDO: Usa obligatoriamente guiones (-) y negritas para resaltar datos clave. Prohibido bloques de texto.
-    2. MNEMOTECNIAS: Crea una mnemotecnia específica para cada sección que ayude a recordar los puntos clave de ese apartado.
-    3. TABLAS: Extrae e integra cada dato de las tablas/imágenes en la sección correspondiente. No omitas nada rentable para el examen.
-    4. FLASHCARDS: Genera exactamente {num_preguntas} enfocadas en {tema_especifico}.
+    REGLAS CRÍTICAS DE FORMATO:
+    1. No devuelvas diccionarios dentro de 'calamares', solo cadenas de texto (strings).
+    2. Usa guiones (-) para cada punto.
+    3. Usa saltos de línea reales (\\n) entre cada punto.
+    4. Al final de cada sección, añade: \\n\\n💡 **Mnemotecnia:** [Texto de la mnemotecnia].
+    5. No te saltes ningún dato de las tablas. Genera {num_preguntas} flashcards.
 
-    Texto médico:
-    {texto_medico}
+    Texto: {texto_medico}
     """
     
     contenido = [prompt]
@@ -45,10 +44,9 @@ def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=30,
         contenido.extend(imagenes)
         
     configuracion_seguridad = {
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        category: HarmBlockThreshold.BLOCK_NONE 
+        for category in [HarmCategory.HARM_CATEGORY_HATE_SPEECH, HarmCategory.HARM_CATEGORY_HARASSMENT, 
+                        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT]
     }
         
     respuesta = model.generate_content(contenido, safety_settings=configuracion_seguridad)
