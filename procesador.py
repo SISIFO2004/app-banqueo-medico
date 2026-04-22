@@ -4,19 +4,23 @@ import google.generativeai as genai
 def configurar_api(api_key):
     genai.configure(api_key=api_key)
 
-def extraer_calamares_y_preguntas(texto_medico):
+def extraer_calamares_y_preguntas(texto_medico, num_preguntas=5, tema_especifico=""):
     """
-    Envía el texto bruto a Gemini y retorna un diccionario estructurado.
+    Envía el texto bruto a Gemini y retorna un diccionario estructurado,
+    adaptándose al número de preguntas y enfoque deseado.
     """
-    # Usamos la versión actual activa del modelo
     model = genai.GenerativeModel(
         'gemini-2.5-flash',
         generation_config={"response_mime_type": "application/json"}
     )
     
+    # Si el usuario escribe un tema específico, le damos esa instrucción extra a la IA
+    instruccion_enfoque = f" Enfoca las flashcards principalmente en: {tema_especifico}." if tema_especifico else ""
+    
     prompt = f"""
     Eres un asistente médico experto. Analiza el siguiente apunte o caso clínico y extrae la información en un objeto JSON estricto con esta estructura exacta:
     {{
+        "tema_general": "Identifica el tema, patología o diagnóstico principal del documento en máximo 5 palabras",
         "calamares": {{
             "Diagnostico": "Resumen de sospecha o diagnóstico definitivo",
             "Tratamiento": "Manejo médico, quirúrgico o de primera línea",
@@ -32,7 +36,9 @@ def extraer_calamares_y_preguntas(texto_medico):
         ]
     }}
 
-    Extrae entre 3 y 5 flashcards de alto rendimiento. Si una categoría de los 'calamares' no se menciona en el texto, déjala como "No especificado".
+    Instrucciones críticas:
+    1. Extrae exactamente {num_preguntas} flashcards de alto rendimiento.{instruccion_enfoque}
+    2. Si una categoría de los 'calamares' no se menciona en el texto, déjala como "No especificado".
 
     Texto médico:
     {texto_medico}
