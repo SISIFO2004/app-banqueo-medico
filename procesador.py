@@ -8,9 +8,9 @@ def extraer_calamares_y_preguntas(texto_medico):
     """
     Envía el texto bruto a Gemini y retorna un diccionario estructurado.
     """
-    # Modelo actualizado a la versión más reciente soportada por la API
+    # Usamos la versión actual activa del modelo
     model = genai.GenerativeModel(
-        'gemini-1.5-flash-latest',
+        'gemini-2.5-flash',
         generation_config={"response_mime_type": "application/json"}
     )
     
