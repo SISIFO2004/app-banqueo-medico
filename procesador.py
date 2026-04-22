@@ -1,12 +1,14 @@
 import json
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 def configurar_api(api_key):
     genai.configure(api_key=api_key)
 
 def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=5, tema_especifico="todos los temas"):
     """
-    Envía texto e imágenes a Gemini para análisis multimodal y retorna un JSON estructurado.
+    Envía texto e imágenes a Gemini para análisis multimodal y retorna un JSON estructurado,
+    con los filtros de seguridad ajustados para permitir contenido médico.
     """
     if imagenes is None:
         imagenes = []
@@ -45,10 +47,21 @@ def extraer_calamares_y_preguntas(texto_medico, imagenes=None, num_preguntas=5, 
     {texto_medico}
     """
     
-    # Empaquetamos todo (texto + imágenes) en una lista para el modelo
     contenido = [prompt]
     if imagenes:
         contenido.extend(imagenes)
         
-    respuesta = model.generate_content(contenido)
+    # Apagamos los filtros para evitar falsos positivos con términos o imágenes médicas
+    configuracion_seguridad = {
+        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    }
+        
+    respuesta = model.generate_content(
+        contenido,
+        safety_settings=configuracion_seguridad
+    )
+    
     return json.loads(respuesta.text)
